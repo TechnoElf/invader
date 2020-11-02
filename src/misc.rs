@@ -11,7 +11,7 @@ use nalgebra::Vector2;
 
 use specs::*;
 
-use crate::misc::persist::{StageMarker, StageMarkerAllocator};
+use crate::misc::persist::{StageMarker, StageMarkerAllocator, PersistRequestQueue};
 
 #[derive(Default)]
 pub struct StateRes(HashMap<String, Box<dyn State>>);
@@ -179,6 +179,7 @@ pub fn register(world: &mut World) {
     world.insert(StateRes::new());
     world.insert(StageMarkerAllocator::new());
     world.register::<StageMarker>();
+    world.insert(PersistRequestQueue::new());
 }
 
 pub mod persist;

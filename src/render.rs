@@ -30,12 +30,11 @@ impl Default for CameraRes {
     }
 }
 
-#[derive(DefaultConstructor)]
-pub struct RenderSys {
-    renderer: SDLRenderImpl<'static>
+pub struct RenderSys<'a> {
+    renderer: SDLRenderImpl<'a>
 }
 
-impl<'a> System<'a> for RenderSys {
+impl<'a, 'b> System<'a> for RenderSys<'b> {
     type SystemData = (Write<'a, UIEventQueue>,
         Read<'a, CameraRes>,
         Read<'a, InputEventQueue>,
@@ -164,6 +163,14 @@ impl<'a> System<'a> for RenderSys {
         }
 
         self.renderer.post();
+    }
+}
+
+impl<'a> RenderSys<'a> {
+    pub fn new(render: SDLRenderImpl<'a>) -> Self {
+        Self {
+            renderer: render
+        }
     }
 }
 
