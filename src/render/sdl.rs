@@ -26,49 +26,61 @@ impl SDLRenderImpl<'_> {
         let dim_x = (sprite_dim.x * cam_screen.x as f32 * cam_zoom / 5.0 / 2.0) as u32;
         let dim_y = (sprite_dim.y * cam_screen.y as f32 * cam_zoom / 5.0 / 2.0 * (cam_screen.x as f32 / cam_screen.y as f32)) as u32;
 
-        self.context.canvas.copy(self.sprite_cache.get(sprite_name), None, Rect::new(pos_x, pos_y, dim_x, dim_y)).unwrap();
+        match self.sprite_cache.get(sprite_name) {
+            Some(sprite) => self.context.canvas.copy(sprite, None, Rect::new(pos_x, pos_y, dim_x, dim_y)).unwrap(),
+            None => eprintln!("sprite \"{}\" not found in cache", sprite_name)
+        }
     }
 
     pub fn write(&mut self, text: &str, font: &str, text_pos: Vector, text_dim: Vector, cam_pos: Vector, cam_zoom: f32, cam_screen: Vector2<u32>) {
-        let (font, color) = self.font_cache.get(font);
+        match self.font_cache.get(font) {
+            Some((font, color)) => {
+                let text_surface = font.render(text).blended(color.clone()).unwrap();
+                let (w, h) = text_surface.size();
+                let text_texture = self.context.texture_creator.create_texture_from_surface(text_surface).unwrap();
 
-        let text_surface = font.render(text).blended(color.clone()).unwrap();
-        let (w, h) = text_surface.size();
-        let text_texture = self.context.texture_creator.create_texture_from_surface(text_surface).unwrap();
+                // Camera transformation
+                let text_dim = Vector2::new(text_dim.y * (w as f32 / h as f32), text_dim.y);
+                let pos_x = (((text_pos.x - cam_pos.x) / 5.0 * cam_zoom + 1.0) / 2.0 * cam_screen.x as f32) as i32;
+                let pos_y = ((-(text_pos.y - cam_pos.y + text_dim.y) / 5.0 * cam_zoom * (cam_screen.x as f32 / cam_screen.y as f32) + 1.0) / 2.0 * cam_screen.y as f32) as i32;
+                let dim_x = (text_dim.x * cam_screen.x as f32 * cam_zoom / 5.0 / 2.0) as u32;
+                let dim_y = (text_dim.y * cam_screen.y as f32 * cam_zoom / 5.0 / 2.0 * (cam_screen.x as f32 / cam_screen.y as f32)) as u32;
 
-        // Camera transformation
-        let text_dim = Vector2::new(text_dim.y * (w as f32 / h as f32), text_dim.y);
-        let pos_x = (((text_pos.x - cam_pos.x) / 5.0 * cam_zoom + 1.0) / 2.0 * cam_screen.x as f32) as i32;
-        let pos_y = ((-(text_pos.y - cam_pos.y + text_dim.y) / 5.0 * cam_zoom * (cam_screen.x as f32 / cam_screen.y as f32) + 1.0) / 2.0 * cam_screen.y as f32) as i32;
-        let dim_x = (text_dim.x * cam_screen.x as f32 * cam_zoom / 5.0 / 2.0) as u32;
-        let dim_y = (text_dim.y * cam_screen.y as f32 * cam_zoom / 5.0 / 2.0 * (cam_screen.x as f32 / cam_screen.y as f32)) as u32;
-
-        self.context.canvas.copy(&text_texture, None, Rect::new(pos_x, pos_y, dim_x, dim_y)).unwrap();
+                self.context.canvas.copy(&text_texture, None, Rect::new(pos_x, pos_y, dim_x, dim_y)).unwrap();
+            },
+            None => eprintln!("font \"{}\" not found in cache", font)
+        }
     }
 
     pub fn render_ss(&mut self, sprite_name: &str, sprite_pos: Vector2<i32>, sprite_dim: Vector2<u32>) {
         let pos = Vector2::new(sprite_pos.x, sprite_pos.y);
         let dim = sprite_dim;
 
-        self.context.canvas.copy(self.sprite_cache.get(sprite_name), None, Rect::new(pos.x, pos.y, dim.x, dim.y)).unwrap();
+        match self.sprite_cache.get(sprite_name) {
+            Some(sprite) => self.context.canvas.copy(sprite, None, Rect::new(pos.x, pos.y, dim.x, dim.y)).unwrap(),
+            None => eprintln!("sprite \"{}\" not found in cache", sprite_name)
+        }
     }
 
     pub fn write_ss(&mut self, text: &str, font: &str, text_pos: Vector2<i32>, text_dim: Vector2<u32>) -> bool {
-        let (font, color) = self.font_cache.get(font);
+        match self.font_cache.get(font) {
+            Some((font, color)) => {
+                match font.render(text).blended(color.clone()) {
+                    Ok(text_surface) => {
+                        let (w, h) = text_surface.size();
+                        let text_texture = self.context.texture_creator.create_texture_from_surface(text_surface).unwrap();
 
-        match font.render(text).blended(color.clone()) {
-            Ok(text_surface) => {
-                let (w, h) = text_surface.size();
-                let text_texture = self.context.texture_creator.create_texture_from_surface(text_surface).unwrap();
+                        let dim = Vector2::new((text_dim.y as f32 * (w as f32 / h as f32)) as u32, text_dim.y);
+                        let pos = Vector2::new(text_pos.x, text_pos.y);
 
-                let dim = Vector2::new((text_dim.y as f32 * (w as f32 / h as f32)) as u32, text_dim.y);
-                let pos = Vector2::new(text_pos.x, text_pos.y);
+                        self.context.canvas.copy(&text_texture, None, Rect::new(pos.x, pos.y, dim.x, dim.y)).unwrap();
 
-                self.context.canvas.copy(&text_texture, None, Rect::new(pos.x, pos.y, dim.x, dim.y)).unwrap();
-
-                dim.x > text_dim.x
+                        dim.x > text_dim.x
+                    },
+                    Err(_) => false
+                }
             },
-            Err(_) => false
+            None => { eprintln!("font \"{}\" not found in cache", font); false }
         }
     }
 
@@ -158,10 +170,10 @@ impl<'a> SpriteCache<'a> {
         self.cache.insert(name, texture);
     }
 
-    fn get(&self, name: &str) -> &Texture<'a> {
+    fn get(&self, name: &str) -> Option<&Texture<'a>> {
         match self.cache.contains_key(name) {
-            true => &self.cache[name],
-            false => panic!("sprite \"{}\" not found in cache", name)
+            true => Some(&self.cache[name]),
+            false => None
         }
     }
 }
@@ -181,10 +193,10 @@ impl<'a> FontCache<'a> {
         self.cache.insert(name, (font, color));
     }
 
-    fn get(&self, name: &str) -> &(Font<'a, 'static>, Color) {
+    fn get(&self, name: &str) -> Option<&(Font<'a, 'static>, Color)> {
         match self.cache.contains_key(name) {
-            true => &self.cache[name],
-            false => panic!("font \"{}\" not found in cache", name)
+            true => Some(&self.cache[name]),
+            false => None
         }
     }
 }
