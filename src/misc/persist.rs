@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
 
@@ -119,6 +120,51 @@ struct StageEntity {
     body: Option<PersistentRigidBody>,
     collider: Option<PersistentCollider>
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpriteSheet {
+    pub sprites: HashMap<String, String>,
+    pub fonts: HashMap<String, (String, u16, u8, u8, u8)>
+}
+
+impl SpriteSheet {
+    pub fn new() -> Self {
+        Self {
+            sprites: HashMap::new(),
+            fonts: HashMap::new()
+        }
+    }
+
+    pub fn add_sprite(&mut self, name: &str, path: &str) {
+        self.sprites.insert(name.to_string(), path.to_string());
+    }
+
+    pub fn remove_sprite(&mut self, name: &str) {
+        self.sprites.remove(name);
+    }
+
+    pub fn add_font(&mut self, name: &str, path: &str, size: u16, color_r: u8, color_g: u8, color_b: u8) {
+        self.fonts.insert(name.to_string(), (path.to_string(), size, color_r, color_g, color_b));
+    }
+
+    pub fn remove_font(&mut self, name: &str) {
+        self.fonts.remove(name);
+    }
+
+    pub fn into_file(&self, file: &str) {
+        let file = File::create(file).unwrap();
+        bincode::serialize_into(&file, &self).unwrap();
+    }
+
+    pub fn from_file(file: &str) -> Option<Self> {
+        match File::open(file) {
+            Ok(file) => Some(bincode::deserialize_from(&file).unwrap()),
+            Err(_) => None
+        }
+    }
+}
+
+// Serialisable versions of engine objects from other libraries
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PersistentRigidBody {

@@ -89,6 +89,21 @@ impl<'a, 'b> InvaderBuilder<'a, 'b> {
         self
     }
 
+    pub fn add_sprite_sheet(mut self, path: &str) -> Self {
+        match SpriteSheet::from_file(path) {
+            Some(sprite_sheet) => {
+                for (name, path) in sprite_sheet.sprites {
+                    self.render.add_sprite(&name, &path);
+                }
+                for (name, (path, size, color_r, color_g, color_b)) in sprite_sheet.fonts {
+                    self.render.add_font(&name, &path, size, color_r, color_g, color_b);
+                }
+            },
+            None => eprintln!("could not load sprite sheet \"{}\"", path)
+        }
+        self
+    }
+
     pub fn build(self) -> Invader<'a, 'b> {
         let render_sys = RenderSys::new(self.render);
         let input_sys = InputSys::new(self.input);
