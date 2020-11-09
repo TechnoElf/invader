@@ -1,5 +1,4 @@
 use invader::InvaderBuilder;
-use invader::misc::persist::SpriteSheet;
 
 #[test]
 fn run() {

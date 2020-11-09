@@ -64,23 +64,40 @@ impl<'a, 'b> System<'a> for RenderSys<'b> {
         }
 
         events.clear();
-        let mut container: Vec<(Vector2<u32>, Vector2<u32>, Vector2<u32>, bool)> = Vec::new();
+        let mut container: Vec<(Vector2<i32>, Vector2<u32>, Vector2<i32>, bool)> = Vec::new();
         container.push((Vector2::new(0, 0), camera.screen, Vector2::new(0, 0), true));
         for (constraint, button, text_label, text_fields, vgs, hgs, ge) in (&constraints, (&buttons).maybe(), (&text_labels).maybe(), (&mut text_fields).maybe(), (&v_group_start).maybe(), (&h_group_start).maybe(), (&group_end).maybe()).join() {
             let size = Vector2::new(constraint.x_size.as_pixels(container.last().unwrap().1.x), constraint.y_size.as_pixels(container.last().unwrap().1.y));
-            let pos = Vector2::new(constraint.x_pos.as_pixels(size.x, container.last().unwrap().1.x) + container.last().unwrap().0.x, constraint.y_pos.as_pixels(size.y, container.last().unwrap().1.y) + container.last().unwrap().0.y);
+
+            let container_pos: Vector2<i32> = Vector2::new(container.last().unwrap().0.x, container.last().unwrap().0.y).convert();
+            let offset_pos: Vector2<i32> = Vector2::new(container.last().unwrap().2.x, container.last().unwrap().2.y).convert();
+            let local_pos: Vector2<i32> = Vector2::new(constraint.x_pos.as_pixels(size.x, container.last().unwrap().1.x), constraint.y_pos.as_pixels(size.y, container.last().unwrap().1.y)).convert();
+            let global_pos = container_pos + offset_pos + local_pos;
+            let end_pos = global_pos + size.convert();
 
             match vgs {
-                Some(_) => {
-                    container.push((pos, size, Vector2::new(0, 0), true));
+                Some(vgs) => {
+                    self.renderer.render_ss(&vgs.sprite, global_pos, size);
+                    if container.last_mut().unwrap().3 {
+                        container.last_mut().unwrap().2.y += (size.y as i32) + local_pos.y;
+                    } else {
+                        container.last_mut().unwrap().2.x += (size.x as i32) + local_pos.x;
+                    }
+                    container.push((global_pos, size, Vector2::new(0, 0), true));
                     continue;
                 },
                 None => ()
             }
 
             match hgs {
-                Some(_) => {
-                    container.push((pos, size, Vector2::new(0, 0), false));
+                Some(hgs) => {
+                    self.renderer.render_ss(&hgs.sprite, global_pos, size);
+                    if container.last_mut().unwrap().3 {
+                        container.last_mut().unwrap().2.y += (size.y as i32) + local_pos.y;
+                    } else {
+                        container.last_mut().unwrap().2.x += (size.x as i32) + local_pos.x;
+                    }
+                    container.push((global_pos, size, Vector2::new(0, 0), false));
                     continue;
                 },
                 None => ()
@@ -93,24 +110,22 @@ impl<'a, 'b> System<'a> for RenderSys<'b> {
                 },
                 None => ()
             }
-            
-            container.last_mut().unwrap().2 += pos;
 
             match button {
                 Some(button) => {
                     let mut pressed = false;
                     for event in input_events.iter() {
                         match event {
-                            InputEvent::MouseDown(m) if container.last_mut().unwrap().2.x < m.x && m.x < container.last_mut().unwrap().2.x + size.x && container.last_mut().unwrap().2.y < m.y && m.y < container.last_mut().unwrap().2.y + size.y => pressed = true,
+                            InputEvent::MouseDown(m) if global_pos.x < (m.x as i32) && (m.x as i32) < end_pos.x && global_pos.y < (m.y as i32) && (m.y as i32) < end_pos.y => pressed = true,
                             _ => ()
                         }
                     }
 
                     if pressed {
                         events.push(UIEvent::ButtonPressed { id: button.element_name.clone() });
-                        self.renderer.render_ss(&button.sprite_pressed, container.last_mut().unwrap().2.convert(), size);
+                        self.renderer.render_ss(&button.sprite_pressed, global_pos, size);
                     } else {
-                        self.renderer.render_ss(&button.sprite, container.last_mut().unwrap().2.convert(), size);
+                        self.renderer.render_ss(&button.sprite, global_pos, size);
                     }
                 },
                 None => ()
@@ -118,21 +133,21 @@ impl<'a, 'b> System<'a> for RenderSys<'b> {
 
             match text_label {
                 Some(text_label) => {
-                    self.renderer.write_ss(&text_label.text, &text_label.font, container.last_mut().unwrap().2.convert(), size);
+                    self.renderer.write_ss(&text_label.text, &text_label.font, global_pos, size);
                 },
                 None => ()
             }
 
             match text_fields {
                 Some(text_field) => {
-                    self.renderer.render_ss(&text_field.background, container.last_mut().unwrap().2.convert(), size);
-                    if self.renderer.write_ss(&text_field.text, &text_field.font, container.last_mut().unwrap().2.convert(), size) {
+                    self.renderer.render_ss(&text_field.background, global_pos, size);
+                    if self.renderer.write_ss(&text_field.text, &text_field.font, global_pos, size) {
                         text_field.text.pop();
                     }
 
                     for event in input_events.iter() {
                         match event {
-                            InputEvent::MouseDown(m) if container.last_mut().unwrap().2.x < m.x && m.x < container.last_mut().unwrap().2.x + size.x && container.last_mut().unwrap().2.y < m.y && m.y < container.last_mut().unwrap().2.y + size.y => {
+                            InputEvent::MouseDown(m) if global_pos.x < (m.x as i32) && (m.x as i32) < end_pos.x && global_pos.y < (m.y as i32) && (m.y as i32) < end_pos.y => {
                                 text_field.captured = true;
                             },
                             InputEvent::MouseDown(_) => {
@@ -154,11 +169,9 @@ impl<'a, 'b> System<'a> for RenderSys<'b> {
             }
 
             if container.last_mut().unwrap().3 {
-                container.last_mut().unwrap().2.y += size.y;
-                container.last_mut().unwrap().2.x -= pos.x;
+                container.last_mut().unwrap().2.y += (size.y as i32) + local_pos.y;
             } else {
-                container.last_mut().unwrap().2.x += size.x;
-                container.last_mut().unwrap().2.y -= pos.y;
+                container.last_mut().unwrap().2.x += (size.x as i32) + local_pos.x;
             }
         }
 
@@ -282,13 +295,33 @@ pub struct ConstraintCom {
     y_size: SizeConstraint
 }
 
-#[derive(Component, Debug, DefaultConstructor)]
+#[derive(Component, Debug)]
 #[storage(DenseVecStorage)]
-pub struct StartVerticalGroupCom;
+pub struct StartVerticalGroupCom {
+    pub sprite: String,
+}
 
-#[derive(Component, Debug, DefaultConstructor)]
+impl StartVerticalGroupCom {
+    pub fn new(sprite: &str) -> Self {
+        Self {
+            sprite: sprite.to_string()
+        }
+    }
+}
+
+#[derive(Component, Debug)]
 #[storage(DenseVecStorage)]
-pub struct StartHorizontalGroupCom;
+pub struct StartHorizontalGroupCom {
+    pub sprite: String,
+}
+
+impl StartHorizontalGroupCom {
+    pub fn new(sprite: &str) -> Self {
+        Self {
+            sprite: sprite.to_string()
+        }
+    }
+}
 
 #[derive(Component, Debug, DefaultConstructor)]
 #[storage(DenseVecStorage)]

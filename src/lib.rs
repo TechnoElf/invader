@@ -52,7 +52,7 @@ const TARGET_FRAME_TIME: f32 = 1.0 / TARGET_FRAME_RATE;
 
 pub struct InvaderBuilder<'a, 'b> {
     dispatcher: DispatcherBuilder<'a, 'b>,
-    stage: String,
+    stage: Option<String>,
     render: SDLRenderImpl<'b>,
     input: SDLInputImpl
 }
@@ -63,7 +63,7 @@ impl<'a, 'b> InvaderBuilder<'a, 'b> {
 
         Self {
             dispatcher: DispatcherBuilder::new(),
-            stage: String::new(),
+            stage: None,
             render: SDLRenderImpl::init(&sdl_context, Vector::new(800.0, 600.0).convert()),
             input: SDLInputImpl::init(&sdl_context)
         }
@@ -75,7 +75,7 @@ impl<'a, 'b> InvaderBuilder<'a, 'b> {
     }
 
     pub fn set_stage(mut self, stage: &str) -> Self {
-        self.stage = stage.to_string();
+        self.stage = Some(stage.to_string());
         self
     }
 
@@ -128,7 +128,9 @@ impl<'a, 'b> InvaderBuilder<'a, 'b> {
 
         world.insert(PhysicsRes::new());
 
-        world.write_resource::<PersistRequestQueue>().push(PersistRequest::LoadStage(self.stage));
+        if let Some(stage) = self.stage {
+            world.write_resource::<PersistRequestQueue>().push(PersistRequest::LoadStage(stage));
+        }
 
         Invader {
             world,
